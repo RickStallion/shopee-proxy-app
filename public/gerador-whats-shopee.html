@@ -21,11 +21,11 @@
 </head>
 <body>
   <h1>🟣 Gerador Whats — Shopee</h1>
-  <p class="muted">Cole seu link de afiliado da Shopee. O texto usa <b>exatamente</b> o seu link.</p>
+  <p class="muted">Cole a <b>URL completa</b> do produto (evite encurtador). O texto usa <b>exatamente</b> o seu link.</p>
 
   <div class="card">
     <label>Endpoint (Turbo — headless)</label>
-    <input id="endpoint" value="/api/scrape-headless" />
+    <input id="endpoint" value="/api/scrape" />
 
     <label class="mt">Endpoint (Rápido — simples)</label>
     <input id="epSimple" value="/api/scrape" />
@@ -40,7 +40,7 @@
   <br/>
   <div class="card">
     <label>Link de afiliado Shopee</label>
-    <input id="link" placeholder="https://s.shopee.com.br/... ou https://shopee.com.br/..." />
+    <input id="link" placeholder="https://shopee.com.br/...i.shopid.itemid" />
 
     <div class="row" style="margin-top:8px">
       <button onclick="buscarDados()">Buscar dados</button>
@@ -85,7 +85,7 @@
     const el = (id)=>document.getElementById(id);
 
     (function load(){
-      el('endpoint').value  = localStorage.getItem('epHeadless') || '/api/scrape-headless';
+      el('endpoint').value  = localStorage.getItem('epHeadless') || '/api/scrape';
       el('epSimple').value  = localStorage.getItem('epSimple') || '/api/scrape';
       el('token').value     = localStorage.getItem('epToken') || '';
       el('status').innerText = '';
@@ -117,9 +117,14 @@
       async function chama(ep){
         const ctrl = new AbortController();
         const tid = setTimeout(()=>ctrl.abort(), 15000);
+
+        // 🔥 cache-buster para evitar 304/ETag
+        const url = `${ep}?u=${encodeURIComponent(link)}&_=${Date.now()}`;
+
         try{
-          const res = await fetch(`${ep}?u=${encodeURIComponent(link)}`,{
+          const res = await fetch(url, {
             signal: ctrl.signal,
+            cache: 'no-store', // evita cache do navegador
             headers: token ? { Authorization: 'Bearer ' + token } : {}
           });
           clearTimeout(tid);
@@ -127,13 +132,19 @@
             const txt = await res.text().catch(()=> '');
             throw new Error(`Proxy ${res.status} ${res.statusText}${txt? ' - '+txt: ''}`);
           }
-          const json = await res.json().catch(()=> ({}));
+          // se por algum motivo vier 304/sem corpo, evita crash
+          const text = await res.text();
+          if (!text) throw new Error('Resposta vazia do proxy.');
+          let json = {};
+          try { json = JSON.parse(text); } catch { throw new Error('JSON inválido do proxy.'); }
           return json;
         }catch(e){ clearTimeout(tid); throw e; }
       }
 
       try{
+        // tenta rápido
         let data = await chama(epRapido);
+        // fallback (deixa igual ao rápido por enquanto)
         if(!data || (!data.title && !data.price && !data.image)){
           data = await chama(epTurbo);
         }
@@ -163,7 +174,7 @@
       linhas.push((title||'Oferta Shopee').toUpperCase());
       if(price) linhas.push('🔖 ' + price);
       linhas.push('');
-      linhas.push('🛒 compre aqui:' + affiliate);
+      linhas.push('🛒 compre aqui: ' + affiliate);
       linhas.push('');
       linhas.push('#ShopeeAchados #OfertasShopee #PromoShopee #CasaBonita #Decoração');
       return linhas.join('\n');
