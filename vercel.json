@@ -1,11 +1,3 @@
 {
-  "version": 2,
-  "functions": {
-    "api/*.js": {
-      "runtime": "nodejs22.x",
-      "memory": 1024,
-      "maxDuration": 30,
-      "includeFiles": "node_modules/@sparticuz/chromium/**"
-    }
-  }
+  "version": 2
 }
